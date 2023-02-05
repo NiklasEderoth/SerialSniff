@@ -31,7 +31,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
         AnsiConsole.Write(rule);
 
-        var fileName = settings.FileName ?? DateTime.UtcNow.ToString();
+        var fileName = settings.FileName ?? DateTime.UtcNow.ToString("yy-MMM-dd_HH-mm.ss");
         var outputPath = settings.FilePath ?? Directory.GetCurrentDirectory();
         var filePath = Path.GetFullPath(Path.Combine(outputPath, fileName + ".txt"));
         Directory.CreateDirectory(outputPath);
@@ -85,8 +85,8 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
                 using StreamWriter file = new(filePath, append: true);
                 serialPort.DataReceived += async (sender, e) =>
                 {
-                    await file.WriteLineAsync("Fourth line");
                     var data = ((SerialPort)sender).ReadExisting();
+                    await file.WriteLineAsync(data);
                     AnsiConsole.MarkupLine($"[grey]{data}[/]");
                 };
                 Console.ReadKey();
