@@ -47,7 +47,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
                     .MoreChoicesText("[grey](Move up and down to reveal more ports)[/]")
                     .AddChoices(availablePorts));
         }
-        else if (!availablePorts.Contains(serialPortName))
+        else if (serialPortName is null || !availablePorts.Contains(serialPortName))
         {
             AnsiConsole.MarkupLine($"Serial port [yellow]{serialPortName}[/] not found!");
             var rowStyle = new Style(Color.Green);
@@ -63,7 +63,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
         {
             Header = new PanelHeader("Selected port:")
         });
-        
+
         var path = new TextPath(filePath)
             .RootColor(Color.Cyan1)
             .SeparatorColor(Color.LightCyan1)
@@ -72,26 +72,42 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
         var pathPanel = new Panel(path);
         pathPanel.Header("Writing to:");
-        AnsiConsole.Write( pathPanel);
+        AnsiConsole.Write(pathPanel);
 
 
         var serialPort = new SerialPort(serialPortName);
-        // Synchronous
+
+        // Create the layout
+        var layout = new Layout("Root")
+            .SplitColumns(
+                new Layout("Left"),
+                new Layout("Right")
+                    .SplitRows(
+                        new Layout("Top"),
+                        new Layout("Bottom")));
+
         var status = AnsiConsole.Status();
         status.Spinner = Spinner.Known.Runner;
         status.Start("Recording... press any key to stop.", ctx =>
+        {
+            serialPort.Open();
+            using StreamWriter file = new(filePath, append: true);
+            serialPort.DataReceived += async (sender, e) =>
             {
-                serialPort.Open();
-                using StreamWriter file = new(filePath, append: true);
-                serialPort.DataReceived += async (sender, e) =>
-                {
-                    var data = ((SerialPort)sender).ReadExisting();
-                    await file.WriteLineAsync(data);
-                    AnsiConsole.MarkupLine($"[grey]{data}[/]");
-                };
-                Console.ReadKey();
-                serialPort.Close();
-            });
+                var data = ((SerialPort)sender).ReadTo("??");
+                await file.WriteLineAsync(data);
+                // Update the left column
+                layout["Left"].Update(
+                    new Panel(
+                        Align.Center(
+                            new Markup($"[grey]{data}[/]"),
+                            VerticalAlignment.Middle))
+                        .Expand());
+                AnsiConsole.Write(layout);
+            };
+            Console.ReadKey();
+            serialPort.Close();
+        });
         AnsiConsole.MarkupLine($"[cyan1]I'm done, Good by![/]");
         return 0;
     }
