@@ -76,6 +76,10 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
 
         var serialPort = new SerialPort(serialPortName);
+        serialPort.DataBits = 8;
+        serialPort.Parity = Parity.None;
+        serialPort.StopBits = StopBits.One;
+        serialPort.BaudRate = 115200;
 
         // Create the layout
         var layout = new Layout("Root")
