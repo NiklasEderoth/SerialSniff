@@ -33,7 +33,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
         var fileName = settings.FileName ?? DateTime.UtcNow.ToString("yy-MMM-dd_HH-mm.ss");
         var outputPath = settings.FilePath ?? Directory.GetCurrentDirectory();
-        var filePath = Path.GetFullPath(Path.Combine(outputPath, fileName + ".txt"));
+        var filePath = Path.GetFullPath(Path.Combine(outputPath, fileName + ".blob"));
         Directory.CreateDirectory(outputPath);
         string[] availablePorts = SerialPort.GetPortNames();
 
@@ -99,6 +99,9 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
             Console.ReadKey();
             serialPort.Close();
         });
+
+        pathPanel.Header("Path to stored file");
+        AnsiConsole.Write(pathPanel);
         AnsiConsole.MarkupLine($"[cyan1]I'm done, Good by![/]");
         return 0;
     }
