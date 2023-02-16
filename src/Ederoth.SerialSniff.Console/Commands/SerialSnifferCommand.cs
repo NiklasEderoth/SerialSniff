@@ -33,7 +33,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
         var fileName = settings.FileName ?? DateTime.UtcNow.ToString("yy-MMM-dd_HH-mm.ss");
         var outputPath = settings.FilePath ?? Directory.GetCurrentDirectory();
-        var filePath = Path.GetFullPath(Path.Combine(outputPath, fileName + ".txt"));
+        var filePath = Path.GetFullPath(Path.Combine(outputPath, fileName + ".blob"));
         Directory.CreateDirectory(outputPath);
         string[] availablePorts = SerialPort.GetPortNames();
 
@@ -75,20 +75,12 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
         AnsiConsole.Write(pathPanel);
 
 
-        var serialPort = new SerialPort(serialPortName);
+        using var serialPort = new SerialPort(serialPortName);
         serialPort.DataBits = 8;
         serialPort.Parity = Parity.None;
         serialPort.StopBits = StopBits.One;
         serialPort.BaudRate = 115200;
-
-        // Create the layout
-        var layout = new Layout("Root")
-            .SplitColumns(
-                new Layout("Left"),
-                new Layout("Right")
-                    .SplitRows(
-                        new Layout("Top"),
-                        new Layout("Bottom")));
+        serialPort.ReceivedBytesThreshold = 256;
 
         var status = AnsiConsole.Status();
         status.Spinner = Spinner.Known.Runner;
@@ -96,22 +88,20 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
         {
             serialPort.Open();
             using StreamWriter file = new(filePath, append: true);
-            serialPort.DataReceived += async (sender, e) =>
+            serialPort.DataReceived += (sender, e) =>
             {
-                var data = ((SerialPort)sender).ReadTo("??");
-                await file.WriteLineAsync(data);
-                // Update the left column
-                layout["Left"].Update(
-                    new Panel(
-                        Align.Center(
-                            new Markup($"[grey]{data}[/]"),
-                            VerticalAlignment.Middle))
-                        .Expand());
-                AnsiConsole.Write(layout);
+                var sp = (SerialPort)sender;
+                AnsiConsole.WriteLine($"Received [cyan1]{sp.BytesToRead}[/] bytes");
+                var buffer = new byte[sp.BytesToRead];
+                var data = sp.Read(buffer, 0, sp.BytesToRead);
+                file.BaseStream.Write(buffer);
             };
             Console.ReadKey();
             serialPort.Close();
         });
+
+        pathPanel.Header("Path to stored file");
+        AnsiConsole.Write(pathPanel);
         AnsiConsole.MarkupLine($"[cyan1]I'm done, Good by![/]");
         return 0;
     }
