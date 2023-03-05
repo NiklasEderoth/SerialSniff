@@ -4,11 +4,13 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System.IO.Ports;
 using System.Reflection;
+using Ederoth.SerialSniff.Console.Boards;
 
 namespace Ederoth.SerialSniffer.Commands;
 
 public class SerialSnifferCommand : Command<SerialSnifferOptions>
 {
+    IScoreboard _scoreboard;
     public override int Execute([NotNull] CommandContext context, [NotNull] SerialSnifferOptions settings)
     {
         if (settings.Version)
@@ -64,6 +66,20 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
             Header = new PanelHeader("Selected port:")
         });
 
+        var baud = AnsiConsole.Prompt
+            (new SelectionPrompt<int>()
+            .Title("Select [green]baud rate[/]?")
+            .UseConverter(t => t.ToString())
+            .AddChoices( new int[] {115200, 19200, 9600 }));
+
+        _scoreboard = AnsiConsole.Prompt(
+                new SelectionPrompt<IScoreboard>()
+                    .Title("Select [green]serial port[/]?")
+                    .PageSize(5)
+                    .MoreChoicesText("[grey](Move up and down to reveal more ports)[/]")
+                    .UseConverter(t => t.GetType().Name)
+                    .AddChoices(new List<IScoreboard>() { new WesterstrandBlue(), new WesterstrandWhite() }));
+
         var path = new TextPath(filePath)
             .RootColor(Color.Cyan1)
             .SeparatorColor(Color.LightCyan1)
@@ -74,29 +90,21 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
         pathPanel.Header("Writing to:");
         AnsiConsole.Write(pathPanel);
 
-
         using var serialPort = new SerialPort(serialPortName);
         serialPort.DataBits = 8;
         serialPort.Parity = Parity.None;
         serialPort.StopBits = StopBits.One;
-        serialPort.BaudRate = 115200;
+        serialPort.BaudRate = baud;
         serialPort.ReceivedBytesThreshold = 256;
+        serialPort.ReadTimeout= 3000;
 
         var status = AnsiConsole.Status();
-        status.Spinner = Spinner.Known.Runner;
+        status.Spinner = Spinner.Known.Star;
         status.Start("Recording... press any key to stop.", ctx =>
         {
             serialPort.Open();
-            using StreamWriter file = new(filePath, append: true);
-            serialPort.DataReceived += (sender, e) =>
-            {
-                var sp = (SerialPort)sender;
-                AnsiConsole.WriteLine($"Received [cyan1]{sp.BytesToRead}[/] bytes");
-                var buffer = new byte[sp.BytesToRead];
-                var data = sp.Read(buffer, 0, sp.BytesToRead);
-                file.BaseStream.Write(buffer);
-            };
-            Console.ReadKey();
+            _scoreboard.ParseData(serialPort, Program.Cts.Token);
+            
             serialPort.Close();
         });
 
