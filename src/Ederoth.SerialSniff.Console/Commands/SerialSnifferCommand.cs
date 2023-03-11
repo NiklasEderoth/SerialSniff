@@ -10,7 +10,7 @@ namespace Ederoth.SerialSniffer.Commands;
 
 public class SerialSnifferCommand : Command<SerialSnifferOptions>
 {
-    IScoreboard _scoreboard;
+    IScoreboard? _scoreboard;
     public override int Execute([NotNull] CommandContext context, [NotNull] SerialSnifferOptions settings)
     {
         if (settings.Version)
@@ -100,7 +100,7 @@ public class SerialSnifferCommand : Command<SerialSnifferOptions>
 
         var status = AnsiConsole.Status();
         status.Spinner = Spinner.Known.Star;
-        status.Start("Recording... press any key to stop.", ctx =>
+        status.Start("Recording... press ctrl + c to stop.", ctx =>
         {
             serialPort.Open();
             _scoreboard.ParseData(serialPort, Program.Cts.Token);

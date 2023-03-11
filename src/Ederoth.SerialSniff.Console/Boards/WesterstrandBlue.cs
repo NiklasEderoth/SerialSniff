@@ -4,7 +4,7 @@ using Spectre.Console;
 
 namespace Ederoth.SerialSniff.Console.Boards
 {
-    public class WesterstrandBlue: IScoreboard
+    public class WesterstrandBlue : IScoreboard
     {
 
         // Define the start marker that marks the beginning of the message
@@ -22,10 +22,10 @@ namespace Ederoth.SerialSniff.Console.Boards
 
         // Create a StringBuilder to build the message
         StringBuilder messageBuilder = new StringBuilder(MessageLength);
-        
+
         // Continuously read bytes from the serial port and process complete messages
         string time = string.Empty;
-        public WesterstrandBlue() 
+        public WesterstrandBlue()
         {
             _client = new HttpClient();
             _client.BaseAddress = new Uri("http://127.0.0.1:8088/API/");
@@ -45,7 +45,7 @@ namespace Ederoth.SerialSniff.Console.Boards
                 {
                     continue;
                 }
-                
+
 
                 // Loop through the buffer and process complete messages
                 for (int i = 0; i < bytesRead; i++)
@@ -60,24 +60,31 @@ namespace Ederoth.SerialSniff.Console.Boards
                     else if (messageBuilder.Length > 5 && (char)buffer[i] == 'X')
                     {
                         messageBuilder.Append((char)buffer[i]); // Add the last character to the message
-                        ReadOnlySpan<char> messageSpan = messageBuilder.ToString();
-
-                        // Extract the data between index 27 and 30 and assign it to the home variable
-                        ReadOnlySpan<char> timeSpan = messageSpan.Slice(15, 5).Trim();
-                        ReadOnlySpan<char> homeSpan = messageSpan.Slice(27, 3).Trim();
-                        ReadOnlySpan<char> awaySpan = messageSpan.Slice(30, 3).Trim();
-
-                        // Process the message and home variable as needed
-                        var newTime = timeSpan.ToString();
-                        if (time != newTime)
+                        try
                         {
-                            time = newTime;
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Klocka.Text&Value={time}");
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Hemma.Text&Value&Value={homeSpan}");
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Borta.Text&Value&Value={awaySpan}");
-                            AnsiConsole.MarkupLine($"[green]{homeSpan}[/] [cyan1]{time}[/] [green]{awaySpan}[/]");
+                            ReadOnlySpan<char> messageSpan = messageBuilder.ToString();
+
+                            // Extract the data between index 27 and 30 and assign it to the home variable
+                            ReadOnlySpan<char> timeSpan = messageSpan.Slice(15, 5).Trim();
+                            ReadOnlySpan<char> homeSpan = messageSpan.Slice(27, 3).Trim();
+                            ReadOnlySpan<char> awaySpan = messageSpan.Slice(30, 3).Trim();
+
+                            // Process the message and home variable as needed
+                            var newTime = timeSpan.ToString();
+                            if (time != newTime)
+                            {
+                                time = newTime;
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Klocka.Text&Value={time}");
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Hemma.Text&Value&Value={homeSpan}");
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Borta.Text&Value&Value={awaySpan}");
+                                AnsiConsole.MarkupLine($"[green]{homeSpan}[/] [cyan1]{time}[/] [green]{awaySpan}[/]");
+                            }
                         }
-                        
+                        catch(Exception ex)
+                        {
+
+                        }
+
                         messageBuilder.Clear(); // Reset the message builder
                     }
                     // If the message builder is not empty and the message is not complete, add the character to the message

@@ -32,7 +32,7 @@ namespace Ederoth.SerialSniff.Console.Boards
         public WesterstrandWhite()
         {
             _client = new HttpClient();
-            _client.BaseAddress =new Uri("http://127.0.0.1:8088/API/");
+            _client.BaseAddress = new Uri("http://127.0.0.1:8088/API/");
         }
 
         public ScoreboardDto ParseData(SerialPort serialPort, CancellationToken cancellationToken)
@@ -45,8 +45,8 @@ namespace Ederoth.SerialSniff.Console.Boards
                 try
                 {
                     bytesRead = serialPort.Read(buffer, 0, BufferSize);
-                } 
-                catch 
+                }
+                catch
                 {
                     continue;
                 }
@@ -56,37 +56,45 @@ namespace Ederoth.SerialSniff.Console.Boards
                     // If the buffer contains the start marker, reset the message builder
                     if (buffer[i] == StartMarker[0] && i + 1 < bytesRead && buffer[i + 1] == StartMarker[1])
                     {
-                        ReadOnlySpan<char> messageSpan = messageBuilder.ToString();
+                        try
+                        {
+                            ReadOnlySpan<char> messageSpan = messageBuilder.ToString();
 
-                        if (messageSpan.StartsWith("RD!"))
-                        {
-                            time = messageSpan.Slice(4, 4).Trim().ToGameClock();
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Klocka.Text&Value={time}");
-                            stateHasChanged = true;
+                            if (messageSpan.StartsWith("RD!"))
+                            {
+                                time = messageSpan.Slice(4, 4).Trim().ToGameClock();
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Klocka.Text&Value={time}");
+                                stateHasChanged = true;
+                            }
+                            else if (messageSpan.StartsWith("RD$"))
+                            {
+                                shotClock = messageSpan.Slice(3, 4).Trim().ToShotClock();
+                                stateHasChanged = true;
+                            }
+                            else if (messageSpan.StartsWith("RD&!"))
+                            {
+                                homeScore = messageSpan.Slice(4, 3).Trim().ToString();
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Hemma.Text&Value&Value={homeScore}");
+                                stateHasChanged = true;
+                            }
+                            else if (messageSpan.StartsWith("RD&)"))
+                            {
+                                awayScore = messageSpan.Slice(4, 3).Trim().ToString();
+                                _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Borta.Text&Value&Value={awayScore}");
+                                stateHasChanged = true;
+                            }
+
+                            if (stateHasChanged)
+                            {
+                                stateHasChanged = false;
+                                AnsiConsole.MarkupLine($"[cyan1]{time}[/] [green]{homeScore} - {awayScore}[/]   [yellow]{shotClock}[/]");
+                            }
                         }
-                        else if (messageSpan.StartsWith("RD$"))
+                        catch (Exception ex)
                         {
-                            shotClock = messageSpan.Slice(3, 4).Trim().ToShotClock();                            
-                            stateHasChanged = true;
-                        }
-                        else if (messageSpan.StartsWith("RD&!"))
-                        {
-                            homeScore = messageSpan.Slice(4, 3).Trim().ToString();
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Hemma.Text&Value&Value={homeScore}");
-                            stateHasChanged = true;
-                        }
-                        else if (messageSpan.StartsWith("RD&)"))
-                        {
-                            awayScore = messageSpan.Slice(4, 3).Trim().ToString();
-                            _client.GetAsync($"?Function=SetText&Input=test5.gtzip&SelectedName=Mål_Borta.Text&Value&Value={awayScore}");
-                            stateHasChanged = true;
+
                         }
 
-                        if (stateHasChanged)
-                        {
-                            stateHasChanged = false;
-                            AnsiConsole.MarkupLine($"[cyan1]{time}[/] [green]{homeScore} - {awayScore}[/]   [yellow]{shotClock}[/]");
-                        }
                         messageBuilder.Clear();
                         i++; // Skip the second start marker byte
                     }
